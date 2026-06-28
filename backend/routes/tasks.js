@@ -21,6 +21,68 @@ function normalizeTags(tags) {
     .filter(Boolean);
 }
 
+function normalizeStatus(status) {
+  if (status === 'inprogress') return 'in_progress';
+  if (status === 'review') return 'blocked';
+  return status;
+}
+
+const allowedSortFields = new Set(['title', 'priority', 'dueDate', 'createdAt', 'updatedAt', 'kanbanOrder', 'status']);
+const priorityRank = { low: 1, medium: 2, high: 3, urgent: 4 };
+
+async function createNotificationOnce({ ownerId, taskId, type, message }) {
+  const exists = await Notification.exists({ ownerId, taskId, type });
+  if (exists) return null;
+  return Notification.create({
+    ownerId,
+    taskId,
+    type,
+    message,
+    readAt: null,
+  });
+}
+
+async function generateDueNotifications(ownerId) {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  const [overdueTasks, dueTodayTasks] = await Promise.all([
+    Task.find({ ownerId, status: { $ne: 'completed' }, dueDate: { $lt: start } }).select('_id title').lean(),
+    Task.find({ ownerId, status: { $ne: 'completed' }, dueDate: { $gte: start, $lte: end } }).select('_id title').lean(),
+  ]);
+
+  await Promise.all([
+    ...overdueTasks.map((task) =>
+      createNotificationOnce({
+        ownerId,
+        taskId: task._id,
+        type: 'overdue',
+        message: `Overdue: ${task.title}`,
+      })
+    ),
+    ...dueTodayTasks.map((task) =>
+      createNotificationOnce({
+        ownerId,
+        taskId: task._id,
+        type: 'due_today',
+        message: `Due today: ${task.title}`,
+      })
+    ),
+  ]);
+}
+
+router.get(
+  '/members',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const users = await User.find().select('name email theme profileImageUrl').limit(50).lean();
+    res.json({ success: true, data: users.map((user) => ({ ...user, id: user._id })) });
+  })
+);
+
 router.get(
   '/',
   requireAuth,
@@ -40,9 +102,12 @@ router.get(
 
     const query = { ownerId };
 
-    if (status) query.status = status;
+    if (status) query.status = normalizeStatus(status);
     if (priority) query.priority = priority;
-    if (categoryId) query.categoryId = categoryId;
+    if (categoryId) {
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) throw new ApiError(400, 'Invalid categoryId');
+      query.categoryId = categoryId;
+    }
     if (tag) query.tags = { $in: [tag] };
 
     if (q) {
@@ -55,18 +120,42 @@ router.get(
     const lim = Math.max(1, Math.min(200, Number(limit) || 50));
     const off = Math.max(0, Number(offset) || 0);
 
-    const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
-    const sort = { [sortBy]: dir, createdAt: dir };
+    await generateDueNotifications(ownerId);
 
-    const [items, total] = await Promise.all([
-      Task.find(query)
-        .sort(sort)
-        .skip(off)
-        .limit(lim)
-        .populate('categoryId', 'name')
-        .lean(),
+    const requestedSort = allowedSortFields.has(String(sortBy)) ? String(sortBy) : 'dueDate';
+    const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
+    const [rawItems, total] = await Promise.all([
+      Task.find(query).populate('categoryId', 'name').lean(),
       Task.countDocuments(query),
     ]);
+
+    const items = rawItems
+      .sort((a, b) => {
+        let left;
+        let right;
+        let leftMissing = false;
+        let rightMissing = false;
+
+        if (requestedSort === 'priority') {
+          left = priorityRank[a.priority] ?? 0;
+          right = priorityRank[b.priority] ?? 0;
+        } else if (requestedSort === 'dueDate' || requestedSort === 'createdAt' || requestedSort === 'updatedAt') {
+          leftMissing = !a[requestedSort];
+          rightMissing = !b[requestedSort];
+          left = leftMissing ? 0 : new Date(a[requestedSort]).getTime();
+          right = rightMissing ? 0 : new Date(b[requestedSort]).getTime();
+        } else {
+          left = a[requestedSort] ?? '';
+          right = b[requestedSort] ?? '';
+        }
+
+        if (leftMissing && !rightMissing) return 1;
+        if (!leftMissing && rightMissing) return -1;
+        if (left < right) return -1 * dir;
+        if (left > right) return 1 * dir;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(off, off + lim);
 
     res.json({ success: true, data: { items, total, limit: lim, offset: off } });
   })
@@ -114,9 +203,18 @@ router.post(
       dueDate: dueDate ? new Date(dueDate) : null,
       categoryId: categoryId || null,
       tags: normalizedTags,
-      status,
+      status: normalizeStatus(status),
       assignedMemberIds: assigned,
     });
+
+    await createNotificationOnce({
+      ownerId,
+      taskId: task._id,
+      type: 'new_task',
+      message: `New task created: ${task.title}`,
+    });
+
+    await generateDueNotifications(ownerId);
 
     res.status(201).json({ success: true, data: task });
   })
@@ -162,19 +260,30 @@ router.put(
         ? assignedMemberIds.split(',').map((s) => s.trim()).filter(Boolean)
         : [];
 
+    const wasCompleted = task.status === 'completed';
+
     task.title = title ?? task.title;
     task.description = description ?? task.description;
     task.priority = priority ?? task.priority;
     task.dueDate = dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : task.dueDate;
     task.categoryId = categoryId || null;
     task.tags = normalizeTags(tags);
-    if (status) task.status = status;
+    if (status) task.status = normalizeStatus(status);
     task.assignedMemberIds = memberIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
 
     if (task.status === 'completed' && !task.completedAt) task.completedAt = new Date();
     if (task.status !== 'completed') task.completedAt = null;
 
     await task.save();
+
+    if (!wasCompleted && task.status === 'completed') {
+      await createNotificationOnce({
+        ownerId,
+        taskId: task._id,
+        type: 'task_completed',
+        message: `Task completed: ${task.title}`,
+      });
+    }
 
     res.json({ success: true, data: task });
   })
@@ -203,17 +312,19 @@ router.patch(
     const task = await Task.findOne({ _id: req.params.id, ownerId });
     if (!task) throw new ApiError(404, 'Task not found');
 
+    const wasCompleted = task.status === 'completed';
     task.status = 'completed';
     task.completedAt = new Date();
     await task.save();
 
-    await Notification.create({
-      ownerId,
-      type: 'task_completed',
-      taskId: task._id,
-      message: `Task completed: ${task.title}`,
-      readAt: null,
-    });
+    if (!wasCompleted) {
+      await createNotificationOnce({
+        ownerId,
+        type: 'task_completed',
+        taskId: task._id,
+        message: `Task completed: ${task.title}`,
+      });
+    }
 
     res.json({ success: true, data: task });
   })
@@ -228,40 +339,32 @@ router.patch(
     const { status, kanbanOrder } = req.body || {};
 
     if (!status) throw new ApiError(400, 'status is required');
+    const nextStatus = normalizeStatus(status);
 
     const task = await Task.findOne({ _id: req.params.id, ownerId });
     if (!task) throw new ApiError(404, 'Task not found');
 
-    task.status = status;
+    const wasCompleted = task.status === 'completed';
+    task.status = nextStatus;
     if (typeof kanbanOrder === 'number') task.kanbanOrder = kanbanOrder;
 
-    if (status === 'completed') {
+    if (nextStatus === 'completed') {
       if (!task.completedAt) task.completedAt = new Date();
 
-      await Notification.create({
-        ownerId,
-        type: 'task_completed',
-        taskId: task._id,
-        message: `Task completed: ${task.title}`,
-        readAt: null,
-      });
+      if (!wasCompleted) {
+        await createNotificationOnce({
+          ownerId,
+          type: 'task_completed',
+          taskId: task._id,
+          message: `Task completed: ${task.title}`,
+        });
+      }
     } else {
       task.completedAt = null;
     }
 
     await task.save();
     res.json({ success: true, data: task });
-  })
-);
-
-router.get(
-  '/members',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    // MVP: list all users in the system (or you can scope by owner/team later)
-    // In production you would add team membership.
-    const users = await User.find().select('name email theme profileImageUrl').limit(50).lean();
-    res.json({ success: true, data: users });
   })
 );
 

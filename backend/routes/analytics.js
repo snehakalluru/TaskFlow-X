@@ -20,13 +20,14 @@ router.get(
   asyncHandler(async (req, res) => {
     const ownerId = req.user._id;
 
-    const [total, completed, pending] = await Promise.all([
+    const [total, completed, pending, inProgress] = await Promise.all([
       Task.countDocuments({ ownerId }),
       Task.countDocuments({ ownerId, status: 'completed' }),
-      Task.countDocuments({ ownerId, status: { $ne: 'completed' } }),
+      Task.countDocuments({ ownerId, status: { $in: ['todo', 'blocked'] } }),
+      Task.countDocuments({ ownerId, status: 'in_progress' }),
     ]);
 
-    res.json({ success: true, data: { total, completed, pending } });
+    res.json({ success: true, data: { total, completed, pending, inProgress } });
   })
 );
 

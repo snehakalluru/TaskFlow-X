@@ -11,6 +11,7 @@ export type TaskMember = {
 export type CategoryLite = {
   _id: string;
   name: string;
+  taskCount?: number;
 };
 
 export type TaskItem = {

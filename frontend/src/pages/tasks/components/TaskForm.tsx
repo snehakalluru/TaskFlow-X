@@ -25,15 +25,17 @@ export default function TaskForm({
   submitText,
   submitting,
   onCancel,
+  categories = [],
 }: {
   initial?: {
     title?: string;
     description?: string;
     priority?: string;
     dueDate?: string | null;
-    categoryId?: string | null;
+    categoryId?: string | { _id: string; name: string } | null;
     tags?: string[];
   };
+  categories?: { _id: string; name: string }[];
   membersEnabled?: boolean;
   members?: any[];
   onSubmit: (values: {
@@ -61,7 +63,7 @@ export default function TaskForm({
       description: initial?.description ?? '',
       priority: (initial?.priority as any) ?? 'medium',
       dueDate: initial?.dueDate ? new Date(initial.dueDate).toISOString().slice(0, 10) : undefined,
-      categoryId: initial?.categoryId ?? undefined,
+      categoryId: typeof initial?.categoryId === 'object' ? initial.categoryId?._id : initial?.categoryId ?? undefined,
       tags: (initial?.tags ?? []).join(','),
     },
   });
@@ -87,21 +89,22 @@ export default function TaskForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label="Priority"
-          value={(register('priority') as any).value}
           options={[
             { value: 'low', label: 'Low' },
             { value: 'medium', label: 'Medium' },
             { value: 'high', label: 'High' },
           ]}
-          onValueChange={() => {}}
-          // react-hook-form integration handled by register below
-          {...(register('priority') as any)}
+          {...register('priority')}
         />
 
         <Input label="Due date" type="date" {...register('dueDate')} />
       </div>
 
-      <Input label="Category ID" {...register('categoryId')} placeholder="(optional)" />
+      <Select
+        label="Category"
+        options={[{ value: '', label: 'No category' }, ...categories.map((category) => ({ value: category._id, label: category.name }))]}
+        {...register('categoryId')}
+      />
 
       <Input label="Tags" {...register('tags')} placeholder="comma,separated" />
 

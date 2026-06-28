@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root{
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 .dark{
@@ -16,9 +16,5 @@ html, body{
 
 body{
   @apply bg-slate-950 text-slate-100 antialiased;
-}
-
-.light body{
-  @apply bg-slate-50 text-slate-900;
 }
 

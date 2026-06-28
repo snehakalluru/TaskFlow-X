@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../../providers/ToastProvider';
 import Button from '../../components/ui/Button';
@@ -53,8 +53,6 @@ export default function TasksPage() {
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
 
   const [formInitial, setFormInitial] = useState<any>(null);
-  const [categories, setCategories] = useState<CategoryLite[]>([]);
-  const [members, setMembers] = useState<TaskMember[]>([]);
 
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
@@ -74,10 +72,6 @@ export default function TasksPage() {
     [q, status, priority, categoryId, sortBy, sortDir]
   );
 
-  const { data, isLoading, isError, error } = (queryClient.getQueryCache().find({ queryKey: ['tasks'] }) as any) || {};
-
-  // Use queryClient fetch instead of useQuery to keep the file simple without creating yet another wrapper hook
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const tasksQueryKey = ['tasks', { ...listQuery, limit, offset }];
 
   const tasks = useQuery({
@@ -93,16 +87,26 @@ export default function TasksPage() {
   const items: TaskItem[] = tasksData?.items ?? [];
   const total = tasksData?.total ?? 0;
 
-  useEffect(() => {
-    void fetchCategories().then(setCategories).catch(() => {});
-    void fetchMembers().then(setMembers).catch(() => {});
-  }, []);
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
+  });
+
+  const membersQuery = useQuery({
+    queryKey: ['task-members'],
+    queryFn: fetchMembers,
+  });
+
+  const categories = categoriesQuery.data ?? [];
+  const members = membersQuery.data ?? [];
 
   const createMut = useMutation({
     mutationFn: (payload: any) => createTask(payload),
     onSuccess: async () => {
       // Invalidate parametrized queries too (listQuery + pagination)
       queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['analytics'], exact: false });
       toastApi.push({ title: 'Task created successfully.', variant: 'success' });
       setFormOpen(false);
       setDrawerOpen(false);
@@ -118,6 +122,8 @@ export default function TasksPage() {
     mutationFn: ({ id, payload }: { id: string; payload: any }) => updateTask(id, payload),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['analytics'], exact: false });
       toastApi.push({ title: 'Task updated', variant: 'success' });
       setFormOpen(false);
       setDrawerOpen(false);
@@ -133,6 +139,8 @@ export default function TasksPage() {
     mutationFn: (id: string) => deleteTask(id),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['analytics'], exact: false });
       toastApi.push({ title: 'Task deleted', variant: 'success' });
     },
     onError: (e) => {
@@ -149,7 +157,12 @@ export default function TasksPage() {
 
   const completeMut = useMutation({
     mutationFn: (id: string) => patchTaskComplete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['analytics'], exact: false });
+      toastApi.push({ title: 'Task completed', variant: 'success' });
+    },
     onError: (e) => {
       const ne = normalizeApiError(e);
       toastApi.push({ title: 'Complete failed', description: ne.message, variant: 'error' });
@@ -228,6 +241,8 @@ export default function TasksPage() {
         setConfirmState((s) => ({ ...s, open: false }));
         await Promise.all(ids.map((id) => patchTaskStatus(id, { status: nextStatus })));
         queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
+        queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
+        queryClient.invalidateQueries({ queryKey: ['analytics'], exact: false });
         setSelectedIds({});
         toastApi.push({ title: 'Bulk update complete', variant: 'success' });
       },
@@ -244,6 +259,8 @@ export default function TasksPage() {
   const persistMove = async ({ taskId, nextStatus, nextOrder }: { taskId: string; nextStatus: string; nextOrder: number }) => {
     try {
       await patchTaskStatus(taskId, { status: nextStatus, kanbanOrder: nextOrder });
+      queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['analytics'], exact: false });
     } catch (e) {
       // rollback by invalidating
       queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
@@ -254,6 +271,17 @@ export default function TasksPage() {
   };
 
   const kanbanTasks = items;
+  const hasActiveFilters = Boolean(q || status || priority || categoryId || sortBy !== 'dueDate' || sortDir !== 'asc');
+
+  const resetFilters = () => {
+    setQ('');
+    setStatus('');
+    setPriority('');
+    setCategoryId('');
+    setSortBy('dueDate');
+    setSortDir('asc');
+    setOffset(0);
+  };
 
   return (
     <div className="space-y-4">
@@ -271,7 +299,7 @@ export default function TasksPage() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <div className="sm:col-span-2">
             <Input label="Search" value={q} onChange={(e) => { setQ(e.target.value); setOffset(0); }} placeholder="title or description" />
@@ -281,7 +309,7 @@ export default function TasksPage() {
 
           <Select label="Priority" value={priority} onValueChange={(v) => { setPriority(v); setOffset(0); }} options={[{ value: '', label: 'All' }, ...priorityOptions]} />
 
-          <Select label="Category" value={categoryId} onValueChange={(v) => { setCategoryId(v); setOffset(0); }} options={[{ value: '', label: 'All' }, ...categories.map((c) => ({ value: c._id, label: c.name }))]} />
+          <Select label="Category" value={categoryId} disabled={categoriesQuery.isLoading} onValueChange={(v) => { setCategoryId(v); setOffset(0); }} options={[{ value: '', label: categoriesQuery.isLoading ? 'Loading...' : 'All' }, ...categories.map((c) => ({ value: c._id, label: c.name }))]} />
 
           <Select label="Sort" value={sortBy} onValueChange={(v) => setSortBy(v)} options={[
             { value: 'dueDate', label: 'Due date' },
@@ -291,6 +319,15 @@ export default function TasksPage() {
           ]} />
 
           <Select label="Direction" value={sortDir} onValueChange={(v) => setSortDir(v as any)} options={[{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-white/55">
+            {tasks.isFetching && !tasks.isLoading ? 'Updating results...' : `${total} matching task${total === 1 ? '' : 's'}`}
+          </div>
+          <Button variant="secondary" onClick={resetFilters} disabled={!hasActiveFilters}>
+            Reset filters
+          </Button>
         </div>
 
         {/* Bulk actions */}
@@ -313,7 +350,7 @@ export default function TasksPage() {
         {tasks.isLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {STATUSES.map((s) => (
-              <div key={s} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div key={s} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                 <div className="font-semibold text-sm">{s}</div>
                 <div className="mt-3 space-y-2">
                   <Skeleton className="h-16" />
@@ -336,7 +373,7 @@ export default function TasksPage() {
       </div>
 
       {/* List view for CRUD/bulk selection */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold">Task list</div>
           <div className="flex items-center gap-2">
@@ -360,17 +397,17 @@ export default function TasksPage() {
           ) : (
             items.map((t) => (
               <div key={t._id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-                <label className="flex items-center gap-3">
+                <label className="flex min-w-0 items-center gap-3">
                   <input
                     type="checkbox"
                     aria-label={`Select task ${t.title}`}
                     checked={!!selectedIds[t._id]}
                     onChange={() => toggleSelect(t._id)}
                   />
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-semibold text-sm">{t.title}</div>
                     <div className="text-xs text-white/60">
-                      {t.dueDate ? `Due ${new Date(t.dueDate).toLocaleDateString()}` : 'No due date'} · {String(t.priority)} · {t.categoryId?.name ?? 'Uncategorized'}
+                      {t.dueDate ? `Due ${new Date(t.dueDate).toLocaleDateString()}` : 'No due date'} - {String(t.priority)} - {t.categoryId?.name ?? 'No category'}
                     </div>
                   </div>
                 </label>
@@ -410,7 +447,7 @@ export default function TasksPage() {
 
         {/* Pagination */}
         <div className="mt-6 flex items-center justify-between gap-3">
-          <div className="text-xs text-white/60">{total ? `Showing ${offset + 1}-${Math.min(offset + limit, total)} of ${total}` : '—'}</div>
+          <div className="text-xs text-white/60">{total ? `Showing ${offset + 1}-${Math.min(offset + limit, total)} of ${total}` : '-'}</div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" disabled={offset <= 0} onClick={() => { setOffset((o) => Math.max(0, o - limit)); }}>
               Prev
@@ -435,6 +472,7 @@ export default function TasksPage() {
       >
         <TaskForm
           initial={formInitial ?? undefined}
+          categories={categories}
           membersEnabled={members.length > 0}
           members={members}
           submitText={formMode === 'create' ? 'Create' : 'Save'}

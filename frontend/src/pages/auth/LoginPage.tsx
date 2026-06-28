@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { apiRoutes } from '../../lib/apiRoutes';
+import { normalizeApiError } from '../../lib/apiErrors';
 import { useAuth } from '../../providers/AuthProvider';
 
 const schema = z.object({
@@ -30,10 +32,14 @@ export default function LoginPage() {
 
   const onSubmit = async (values: FormValues) => {
     setError(null);
-    const res = await api.post('/api/auth/login', values);
-    const { token, user } = res.data;
-    login(token, user);
-    navigate('/');
+    try {
+      const res = await api.post(apiRoutes.login, values);
+      const { token, user } = res.data;
+      login(token, user);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(normalizeApiError(err).message);
+    }
   };
 
   return (
@@ -54,7 +60,7 @@ export default function LoginPage() {
             {errors.password && <p className="text-sm text-red-400 mt-1">{errors.password.message}</p>}
           </div>
           <label className="flex items-center gap-2 text-sm text-white/70">
-            <input type="checkbox" className="accent-indigo-400" {...register('rememberMe')} />
+            <input type="checkbox" className="accent-red-400" {...register('rememberMe')} />
             Remember me
           </label>
 
@@ -63,7 +69,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-60 disabled:cursor-not-allowed py-2 font-medium"
+            className="w-full rounded-xl bg-red-500 hover:bg-red-400 disabled:opacity-60 disabled:cursor-not-allowed py-2 font-medium"
           >
             {isSubmitting ? 'Signing in...' : 'Sign in'}
           </button>

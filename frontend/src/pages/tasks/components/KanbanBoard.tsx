@@ -64,10 +64,10 @@ export default function KanbanBoard({
             .sort((a, b) => (a.kanbanOrder ?? 0) - (b.kanbanOrder ?? 0));
 
           return (
-            <div key={s} className="rounded-2xl border border-white/10 bg-white/5 p-3 min-h-[16rem]">
+            <div key={s} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 min-h-[16rem] transition hover:border-red-400/20">
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-sm">{statusLabel(String(s))}</div>
-                <div className="text-xs text-white/60">{colTasks.length}</div>
+                <div className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-100">{colTasks.length}</div>
               </div>
               <SortableContext items={colTasks.map((t) => t._id)} strategy={verticalListSortingStrategy}>
                 <div

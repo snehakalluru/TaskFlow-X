@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { apiRoutes } from '../../lib/apiRoutes';
+import { normalizeApiError } from '../../lib/apiErrors';
 import { useAuth } from '../../providers/AuthProvider';
 
 const schema = z.object({
@@ -30,10 +32,14 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: FormValues) => {
     setError(null);
-    const res = await api.post('/api/auth/register', values);
-    const { token, user } = res.data;
-    login(token, user);
-    navigate('/');
+    try {
+      const res = await api.post(apiRoutes.register, values);
+      const { token, user } = res.data;
+      login(token, user);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(normalizeApiError(err).message);
+    }
   };
 
   return (
@@ -64,7 +70,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-60 disabled:cursor-not-allowed py-2 font-medium"
+            className="w-full rounded-xl bg-red-500 hover:bg-red-400 disabled:opacity-60 disabled:cursor-not-allowed py-2 font-medium"
           >
             {isSubmitting ? 'Creating...' : 'Create account'}
           </button>

@@ -19,7 +19,7 @@ export default function TaskCard({ task }: { task: TaskItem }) {
       style={style}
       className={
         'rounded-2xl border border-white/10 bg-white/5 p-3 text-sm backdrop-blur ' +
-        (isDragging ? 'opacity-80 ring-2 ring-indigo-400/40' : '')
+        (isDragging ? 'opacity-80 ring-2 ring-red-400/40' : '')
       }
     >
       <div className="flex items-start justify-between gap-3">
@@ -33,6 +33,9 @@ export default function TaskCard({ task }: { task: TaskItem }) {
           {task.dueDate ? (
             <div className="mt-2 text-xs text-white/60">Due {new Date(task.dueDate).toLocaleDateString()}</div>
           ) : null}
+          <div className="mt-2 w-fit rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-[11px] text-red-100">
+            {task.categoryId?.name ?? 'No category'}
+          </div>
         </div>
 
         <button
@@ -49,7 +52,7 @@ export default function TaskCard({ task }: { task: TaskItem }) {
       {task.tags && task.tags.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1">
           {task.tags.slice(0, 3).map((t) => (
-            <span key={t} className="inline-flex items-center gap-1 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-100">
+            <span key={t} className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[11px] text-red-100">
               <Tag size={12} />{t}
             </span>
           ))}

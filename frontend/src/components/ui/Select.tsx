@@ -1,4 +1,4 @@
-import type { SelectHTMLAttributes } from 'react';
+import { forwardRef, type SelectHTMLAttributes } from 'react';
 import clsx from 'clsx';
 
 type Option = { value: string; label: string };
@@ -11,7 +11,10 @@ type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'>
   options: Option[];
 };
 
-export default function Select({ label, error, className, id, options, value, onValueChange, ...rest }: Props) {
+const Select = forwardRef<HTMLSelectElement, Props>(function Select(
+  { label, error, className, id, options, value, onValueChange, onChange, ...rest },
+  ref
+) {
   const selectId = id ?? (label ? label.replace(/\s+/g, '-').toLowerCase() : undefined);
 
   return (
@@ -22,6 +25,7 @@ export default function Select({ label, error, className, id, options, value, on
         </label>
       )}
       <select
+        ref={ref}
         id={selectId}
         className={clsx(
           'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20',
@@ -29,7 +33,10 @@ export default function Select({ label, error, className, id, options, value, on
           className
         )}
         value={value ?? ''}
-        onChange={(e) => onValueChange?.(e.target.value)}
+        onChange={(e) => {
+          onChange?.(e);
+          onValueChange?.(e.target.value);
+        }}
         {...rest}
       >
         {options.map((o) => (
@@ -41,5 +48,7 @@ export default function Select({ label, error, className, id, options, value, on
       {error && <p className="text-sm text-red-300">{error}</p>}
     </div>
   );
-}
+});
+
+export default Select;
 

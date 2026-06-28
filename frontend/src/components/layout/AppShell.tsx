@@ -13,19 +13,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10" aria-hidden="true" />
+            <div className="h-10 w-10 rounded-2xl border border-red-400/30 bg-red-500/15 shadow-lg shadow-red-950/30" aria-hidden="true" />
             <div>
-              <div className="text-sm font-semibold">TaskFlow</div>
+              <div className="text-sm font-semibold">TaskFlow X</div>
               <div className="text-xs text-white/60">Workspace</div>
             </div>
           </div>
 
           <nav className="hidden md:flex items-center gap-2">
             <NavLink
-              to="/"
+              to="/dashboard"
               className={({ isActive }) =>
                 `rounded-xl px-3 py-2 text-sm border border-transparent transition ${
-                  isActive ? 'bg-white/5 border-white/10 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+                  isActive ? 'bg-red-500/15 border-red-400/30 text-red-50' : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -35,7 +35,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               to="/tasks"
               className={({ isActive }) =>
                 `rounded-xl px-3 py-2 text-sm border border-transparent transition ${
-                  isActive ? 'bg-white/5 border-white/10 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+                  isActive ? 'bg-red-500/15 border-red-400/30 text-red-50' : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               to="/categories"
               className={({ isActive }) =>
                 `rounded-xl px-3 py-2 text-sm border border-transparent transition ${
-                  isActive ? 'bg-white/5 border-white/10 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+                  isActive ? 'bg-red-500/15 border-red-400/30 text-red-50' : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -55,7 +55,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               to="/notifications"
               className={({ isActive }) =>
                 `rounded-xl px-3 py-2 text-sm border border-transparent transition ${
-                  isActive ? 'bg-white/5 border-white/10 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+                  isActive ? 'bg-red-500/15 border-red-400/30 text-red-50' : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -65,7 +65,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               to="/settings"
               className={({ isActive }) =>
                 `rounded-xl px-3 py-2 text-sm border border-transparent transition ${
-                  isActive ? 'bg-white/5 border-white/10 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+                  isActive ? 'bg-red-500/15 border-red-400/30 text-red-50' : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -95,7 +95,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       <footer className="md:hidden sticky bottom-0 z-40 border-t border-white/10 bg-slate-950/70 backdrop-blur">
         <div className="flex items-center justify-around py-2">
-          <NavLink to="/" className="text-white/70 hover:text-white" aria-label="Dashboard">
+          <NavLink to="/dashboard" className="text-white/70 hover:text-white" aria-label="Dashboard">
             <LayoutGrid size={18} />
           </NavLink>
           <NavLink to="/tasks" className="text-white/70 hover:text-white" aria-label="Tasks">

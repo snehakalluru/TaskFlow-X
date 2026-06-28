@@ -64,7 +64,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-100'
               : variant === 'error'
                 ? 'bg-red-500/15 border-red-500/30 text-red-100'
-                : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-100';
+                : 'bg-red-500/10 border-red-500/25 text-red-50';
 
           return (
             <div

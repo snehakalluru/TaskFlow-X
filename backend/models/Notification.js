@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ['due_today', 'overdue', 'task_completed', 'reminder'],
+      enum: ['new_task', 'due_today', 'overdue', 'task_completed', 'reminder'],
       required: true,
     },
 

@@ -59,7 +59,8 @@ router.patch(
     if (theme && ['light', 'dark'].includes(theme)) update.theme = theme;
 
     if (req.file) {
-      const url = `${(process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '')}/uploads/${req.file.filename}`;
+      const publicBaseUrl = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+      const url = `${publicBaseUrl}/uploads/${req.file.filename}`;
       update.profileImageUrl = url;
     }
 

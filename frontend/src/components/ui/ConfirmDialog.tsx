@@ -37,7 +37,7 @@ export default function ConfirmDialog({
             className={
               danger
                 ? 'rounded-xl bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100 hover:bg-red-500/30 border border-red-500/30'
-                : 'rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400'
+                : 'rounded-xl bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-400'
             }
             onClick={onConfirm}
           >

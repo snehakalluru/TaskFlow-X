@@ -19,12 +19,69 @@ function endOfDay(d) {
   return x;
 }
 
+async function createNotificationOnce({ ownerId, taskId, type, message }) {
+  const exists = await Notification.exists({ ownerId, taskId, type });
+  if (exists) return null;
+  return Notification.create({
+    ownerId,
+    taskId,
+    type,
+    message,
+    readAt: null,
+  });
+}
+
+async function generateDueNotifications(ownerId) {
+  const now = new Date();
+  const sod = startOfDay(now);
+  const eod = endOfDay(now);
+
+  const [overdueTasks, dueTodayTasks] = await Promise.all([
+    Task.find({
+      ownerId,
+      status: { $ne: 'completed' },
+      dueDate: { $lt: sod },
+    }).select('_id title dueDate'),
+    Task.find({
+      ownerId,
+      status: { $ne: 'completed' },
+      dueDate: { $gte: sod, $lte: eod },
+    }).select('_id title dueDate'),
+  ]);
+
+  const created = [];
+
+  for (const task of overdueTasks) {
+    const notification = await createNotificationOnce({
+      ownerId,
+      type: 'overdue',
+      taskId: task._id,
+      message: `Overdue: ${task.title}`,
+    });
+    if (notification) created.push(notification._id);
+  }
+
+  for (const task of dueTodayTasks) {
+    const notification = await createNotificationOnce({
+      ownerId,
+      type: 'due_today',
+      taskId: task._id,
+      message: `Due today: ${task.title}`,
+    });
+    if (notification) created.push(notification._id);
+  }
+
+  return created.length;
+}
+
 router.get(
   '/',
   requireAuth,
   asyncHandler(async (req, res) => {
+    await generateDueNotifications(req.user._id);
+
     const notifs = await Notification.find({ ownerId: req.user._id })
-      .sort({ scheduledAt: -1 })
+      .sort({ readAt: 1, scheduledAt: -1, createdAt: -1 })
       .limit(50)
       .lean();
 
@@ -48,66 +105,25 @@ router.patch(
   })
 );
 
+router.delete(
+  '/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const notif = await Notification.findOneAndDelete({ _id: req.params.id, ownerId: req.user._id });
+    if (!notif) throw new ApiError(404, 'Notification not found');
+    res.json({ success: true });
+  })
+);
+
 // Generate due today / overdue notifications on demand (MVP)
 router.post(
   '/generate',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const now = new Date();
     const ownerId = req.user._id;
+    const createdCount = await generateDueNotifications(ownerId);
 
-    const sod = startOfDay(now);
-    const eod = endOfDay(now);
-
-    const overdueTasks = await Task.find({
-      ownerId,
-      status: { $ne: 'completed' },
-      dueDate: { $lt: sod },
-    }).select('_id title dueDate');
-
-    const dueTodayTasks = await Task.find({
-      ownerId,
-      status: { $ne: 'completed' },
-      dueDate: { $gte: sod, $lte: eod },
-    }).select('_id title dueDate');
-
-    const created = [];
-
-    for (const t of overdueTasks) {
-      const exists = await Notification.exists({
-        ownerId,
-        type: 'overdue',
-        taskId: t._id,
-      });
-      if (exists) continue;
-
-      const n = await Notification.create({
-        ownerId,
-        type: 'overdue',
-        taskId: t._id,
-        message: `Overdue: ${t.title}`,
-      });
-      created.push(n._id);
-    }
-
-    for (const t of dueTodayTasks) {
-      const exists = await Notification.exists({
-        ownerId,
-        type: 'due_today',
-        taskId: t._id,
-      });
-      if (exists) continue;
-
-      const n = await Notification.create({
-        ownerId,
-        type: 'due_today',
-        taskId: t._id,
-        message: `Due today: ${t.title}`,
-      });
-      created.push(n._id);
-    }
-
-    res.json({ success: true, createdCount: created.length });
+    res.json({ success: true, createdCount });
   })
 );
 

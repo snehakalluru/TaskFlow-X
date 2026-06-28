@@ -1,8 +1,8 @@
 import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getToken, clearToken } from '../lib/storage';
 import { apiRoutes } from '../lib/apiRoutes';
+import { api } from '../lib/api';
 
 
 
@@ -51,9 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!t) return;
 
     try {
-      const res = await axios.get(apiRoutes.me, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const res = await api.get(apiRoutes.me);
       if (res.data?.success) setUser(res.data.user);
       else setUser(null);
     } catch (e) {

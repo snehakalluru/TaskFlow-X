@@ -5,6 +5,7 @@ import { AuthProvider } from './providers/AuthProvider';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import LandingPage from './pages/LandingPage';
 import RequireAuth from './routes/RequireAuth';
 import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/tasks/TasksPage';
@@ -20,9 +21,10 @@ export default function App() {
         <QueryProvider>
           <ToastProvider>
             <Routes>
-              <Route path="/" element={<RequireAuth><AppShell><DashboardPage /></AppShell></RequireAuth>} />
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/dashboard" element={<RequireAuth><AppShell><DashboardPage /></AppShell></RequireAuth>} />
               <Route path="/settings" element={<RequireAuth><AppShell><SettingsPage /></AppShell></RequireAuth>} />
               <Route path="/tasks" element={<RequireAuth><AppShell><TasksPage /></AppShell></RequireAuth>} />
               <Route path="/categories" element={<RequireAuth><AppShell><CategoriesPage /></AppShell></RequireAuth>} />

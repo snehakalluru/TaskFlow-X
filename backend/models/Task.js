@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const priorities = ['low', 'medium', 'high', 'urgent'];
-const statuses = ['todo', 'inprogress', 'review', 'completed'];
+const statuses = ['todo', 'in_progress', 'blocked', 'completed'];
 
 const taskSchema = new mongoose.Schema(
   {
