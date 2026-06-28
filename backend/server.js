@@ -31,7 +31,12 @@ app.use(
   })
 );
 
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/health', (req, res) =>
+  res.json({
+    ok: true,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  })
+);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -44,26 +49,32 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 const MONGODB_URI = process.env.MONGODB_URI;
 
-async function start() {
+async function connectDatabase() {
   if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI is required');
+    // eslint-disable-next-line no-console
+    console.error('MONGODB_URI is required. Backend is running, but database features will fail.');
+    return;
   }
 
   await mongoose.connect(MONGODB_URI, {
     autoIndex: true,
+    serverSelectionTimeoutMS: 10000,
   });
 
-  app.listen(PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(`TaskFlow X backend running on port ${PORT}`);
-  });
+  // eslint-disable-next-line no-console
+  console.log('MongoDB connected');
 }
 
-start().catch((err) => {
+app.listen(PORT, HOST, () => {
   // eslint-disable-next-line no-console
-  console.error('Failed to start backend:', err);
-  process.exit(1);
+  console.log(`TaskFlow X backend running on ${HOST}:${PORT}`);
+});
+
+connectDatabase().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error('Failed to connect to MongoDB:', err);
 });
 
