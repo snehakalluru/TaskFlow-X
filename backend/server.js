@@ -31,10 +31,19 @@ app.use(
   })
 );
 
+app.get('/', (req, res) =>
+  res.json({
+    success: true,
+    message: 'TaskFlow X Backend API is running',
+    status: 'OK',
+  })
+);
+
 app.get('/health', (req, res) =>
   res.json({
-    ok: true,
-    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    success: true,
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
   })
 );
 
@@ -49,7 +58,6 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-const HOST = '0.0.0.0';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 async function connectDatabase() {
@@ -68,9 +76,9 @@ async function connectDatabase() {
   console.log('MongoDB connected');
 }
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`TaskFlow X backend running on ${HOST}:${PORT}`);
+  console.log(`TaskFlow X backend running on port ${PORT}`);
 });
 
 connectDatabase().catch((err) => {
